@@ -53,40 +53,40 @@ class ZameenScraper(scrapy.Spider):
         for card in response.css('li[role="article"]'):
   
             feature = {
-                'title': card.css('h2[aria-label="Title"]::text')
+                'Title': card.css('h2[aria-label="Title"]::text')
                              .get(),
                 
-                'price': 'PKR ' + card.css('span[aria-label="Price"]::text')
+                'Price': 'PKR ' + card.css('span[aria-label="Price"]::text')
                              .get(),
                 
-                'location': card.css('div[aria-label="Location"]::text')
+                'Location': card.css('div[aria-label="Location"]::text')
                                     .get(),
                 
-                'details_url': 'https://www.zameen.com' + card.css('a::attr(href)')
-                                   .get(),
+                # 'details_url': 'https://www.zameen.com' + card.css('a::attr(href)')
+                #                    .get(),
                 
-                'bedrooms': card.css('span[aria-label="Beds"]::text')
+                'Bedrooms': card.css('span[aria-label="Beds"]::text')
                                 .get(),
                 
-                'bathrooms': card.css('span[aria-label="Baths"]::text')
+                'Bathrooms': card.css('span[aria-label="Baths"]::text')
                                 .get(),
                                 
-                'area': card.css('span[aria-label="Area"] *::text')
+                'Area': card.css('span[aria-label="Area"] *::text')
                                 .get(),
                 
-                'price': 'N/A',
+                'Price': 'N/A',
                 
-                'purpose': 'N/A',
+                'Purpose': 'N/A',
                
                 'Property_type':'N/A',
                 
-                'phone': 'N/A',
+                'Phone': 'N/A',
                 
-                'contact_name': 'N/A',
+                'Contact_name': 'N/A',
                 
                 'img_url': 'N/A',
 
-                'description':'N/a',
+                'Description':'N/a',
             }
             
             try:
@@ -109,12 +109,12 @@ class ZameenScraper(scrapy.Spider):
             json_data = json_data['algolia']['content']['hits']
             
             for index in range(0, len(features)):
-                features[index]['price'] = json_data[index]['price'] 
-                features[index]['purpose'] = json_data[index]['purpose']
-                features[index]['property_type'] = json_data[index]['category'][-1]['name']
-                features[index]['phone'] = ', '.join(json_data[index]['phoneNumber']['mobileNumbers'])
-                features[index]['contact_name'] = json_data[index]['contactName']
-                features[index]['description'] = json_data[index]['shortDescription']
+                features[index]['Price'] = json_data[index]['price'] 
+                features[index]['Purpose'] = json_data[index]['purpose']
+                features[index]['Property_type'] = json_data[index]['category'][-1]['name']
+                features[index]['Phone'] = ', '.join(json_data[index]['phoneNumber']['mobileNumbers'])
+                features[index]['Contact_name'] = json_data[index]['contactName']
+                features[index]['Description'] = json_data[index]['shortDescription']
 
                 
               
