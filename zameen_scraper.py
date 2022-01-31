@@ -111,7 +111,7 @@ class ZameenScraper(scrapy.Spider):
             for index in range(0, len(features)):
                 features[index]['price'] = json_data[index]['price'] 
                 features[index]['purpose'] = json_data[index]['purpose']
-                # features[index]['name'] = json_data[index]['name']
+                features[index]['property_type'] = json_data[index]['category'][-1]['name']
                 features[index]['phone'] = ', '.join(json_data[index]['phoneNumber']['mobileNumbers'])
                 features[index]['contact_name'] = json_data[index]['contactName']
                 features[index]['description'] = json_data[index]['shortDescription']
