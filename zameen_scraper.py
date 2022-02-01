@@ -1,19 +1,24 @@
 # packages
-import scrapy
 from scrapy.crawler import CrawlerProcess
 from scrapy.selector import Selector
+import mysql.connector
+import scrapy
 import urllib
 import json
 
+
+
+
 class ZameenScraper(scrapy.Spider):
     name = 'zameen'
-    
+
     # base URL
     base_url = 'https://www.zameen.com/Homes/'
     
     params = {
-        'agent_id':'163133',
-        'type':'all'
+        'agent_id':'180700',
+        'type':'all',
+        'property_status':'available'
     }
     
 
@@ -21,18 +26,8 @@ class ZameenScraper(scrapy.Spider):
      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
 
     }
-    
-    # custom settings
-    custom_settings = {
-        'FEED_FORMAT': 'csv',
-        'FEED_URI': 'zameen_home2.csv',
-        
-        # uncomment below to limit the spider speed
-        # 'CONCURRENT_REQUESTS_PER_DOMAIN': 2,
-        # 'DOWNLOAD_DELAY': 1
-    }
-    
 
+    
     def start_requests(self):
         for page in range(1, 8):
             # generate next page URL
@@ -48,52 +43,62 @@ class ZameenScraper(scrapy.Spider):
     
     # parse property cards
     def parse(self, response):
+
+        # Connect to database server
+        cnx = mysql.connector.connect(
+            host= "127.0.0.1",
+            port= 3306,
+            user= "root",
+            password= "",
+            database  = 'realestatev2')
+
+
+        cursor = cnx.cursor()                            
+        sql = "INSERT INTO `property_drafts` (`title`, `description`, `area`, `price`) VALUES (%(title)s, %(description)s, %(area)s, %(price)s);"
         
         features = []
         for card in response.css('li[role="article"]'):
   
             feature = {
-                'Title': card.css('h2[aria-label="Title"]::text')
+                #for properties table
+                'title': card.css('h2[aria-label="Title"]::text')
+                             .get(),
+
+                'description':'N/a',
+
+                # 'purpose': 'N/A',
+
+                'area': card.css('span[aria-label="Area"] *::text')
+                                .get(),
+                
+                'price': 'PKR ' + card.css('span[aria-label="Price"]::text')
                              .get(),
                 
-                'Price': 'PKR ' + card.css('span[aria-label="Price"]::text')
-                             .get(),
-                
-                'Location': card.css('div[aria-label="Location"]::text')
+                # for address table
+                'location': card.css('div[aria-label="Location"]::text')
                                     .get(),
                 
-                # 'details_url': 'https://www.zameen.com' + card.css('a::attr(href)')
-                #                    .get(),
-                
-                'Bedrooms': card.css('span[aria-label="Beds"]::text')
-                                .get(),
-                
-                'Bathrooms': card.css('span[aria-label="Baths"]::text')
-                                .get(),
-                                
-                'Area': card.css('span[aria-label="Area"] *::text')
-                                .get(),
-                
-                'Price': 'N/A',
-                
-                'Purpose': 'N/A',
-               
-                'Property_type':'N/A',
-                
-                'Phone': 'N/A',
-                
-                'Contact_name': 'N/A',
-                
-                'img_url': 'N/A',
+              
+                # for property_details
 
-                'Description':'N/a',
+                'rooms': card.css('span[aria-label="Beds"]::text')
+                                .get(),
+                
+                'bathrooms': card.css('span[aria-label="Baths"]::text')
+                                .get(),
+
+                
+                'price': 'N/A',
+                
+                'property_type':'N/A',
+                
+                #for customer table
+                'name': 'N/A',
+
+                'phone': 'N/A',
+                
             }
             
-            try:
-                feature['img_url'] = card.css('source[type="image/webp"]::attr(data-srcset)').get().replace('400x300', '800x600')
-            
-            except:
-                pass
             
             features.append(feature)
             
@@ -109,12 +114,12 @@ class ZameenScraper(scrapy.Spider):
             json_data = json_data['algolia']['content']['hits']
             
             for index in range(0, len(features)):
-                features[index]['Price'] = json_data[index]['price'] 
-                features[index]['Purpose'] = json_data[index]['purpose']
-                features[index]['Property_type'] = json_data[index]['category'][-1]['name']
-                features[index]['Phone'] = ', '.join(json_data[index]['phoneNumber']['mobileNumbers'])
-                features[index]['Contact_name'] = json_data[index]['contactName']
-                features[index]['Description'] = json_data[index]['shortDescription']
+                features[index]['price'] = json_data[index]['price'] 
+                # features[index]['purpose'] = json_data[index]['purpose']
+                features[index]['property_type'] = json_data[index]['category'][-1]['name']
+                features[index]['phone'] = ', '.join(json_data[index]['phoneNumber']['mobileNumbers'])
+                features[index]['name'] = json_data[index]['contactName']
+                features[index]['description'] = json_data[index]['shortDescription']
 
                 
               
@@ -122,11 +127,15 @@ class ZameenScraper(scrapy.Spider):
         except:
             pass
 
+        cursor.execute(sql,features)
+        cnx.commit()
+        cursor.close()
+        cnx.close()
+
 if __name__ == '__main__':
     # run scraper
     process = CrawlerProcess()
     process.crawl(ZameenScraper)
     process.start()
-    
-    # debugging selectors
-    # ZameenScraper.parse(ZameenScraper, '')
+
+
