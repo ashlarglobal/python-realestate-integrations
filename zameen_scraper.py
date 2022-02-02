@@ -1,13 +1,13 @@
 # packages
 from scrapy.crawler import CrawlerProcess
-from scrapy.selector import Selector
+from dotenv import load_dotenv
 import mysql.connector
 import scrapy
 import urllib
 import json
+import os
 
-
-
+load_dotenv()
 
 class ZameenScraper(scrapy.Spider):
     name = 'zameen'
@@ -16,9 +16,10 @@ class ZameenScraper(scrapy.Spider):
     base_url = 'https://www.zameen.com/Homes/'
     
     params = {
-        'agent_id':'180700',
-        'type':'all',
-        'property_status':'available'
+        
+        'types':'all',
+        'agent_id':'157272'
+       
     }
     
 
@@ -29,9 +30,9 @@ class ZameenScraper(scrapy.Spider):
 
     
     def start_requests(self):
-        for page in range(1, 8):
+        for page in range(1, 9):
             # generate next page URL
-            next_page = self.base_url + 'Pakistan-1521-' + str(page) + '.html'
+            next_page = self.base_url + 'Pakistan-1521-' + str(page) + '.html?'
             next_page += urllib.parse.urlencode(self.params)
             
             # crawl the next page URL
@@ -44,18 +45,20 @@ class ZameenScraper(scrapy.Spider):
     # parse property cards
     def parse(self, response):
 
+        DB_HOST=os.getenv('DB_HOST')
+        DB_PORT=os.getenv('DB_PORT')
+        DB_DATABASE = os.getenv('DB_DATABASE')
+        DB_USERNAME=os.getenv('DB_USERNAME')
+        DB_PASSWORD=os.getenv('DB_PASSWORD')
+    
         # Connect to database server
         cnx = mysql.connector.connect(
-            host= "127.0.0.1",
-            port= 3306,
-            user= "root",
-            password= "",
-            database  = 'realestatev2')
+            host= DB_HOST,
+            port= DB_PORT,
+            user= DB_USERNAME,
+            password= DB_PASSWORD,
+            database  = DB_DATABASE)
 
-
-        cursor = cnx.cursor()                            
-        sql = "INSERT INTO `property_drafts` (`title`, `description`, `area`, `price`) VALUES (%(title)s, %(description)s, %(area)s, %(price)s);"
-        
         features = []
         for card in response.css('li[role="article"]'):
   
@@ -68,34 +71,30 @@ class ZameenScraper(scrapy.Spider):
 
                 # 'purpose': 'N/A',
 
-                'area': card.css('span[aria-label="Area"] *::text')
+                'area': card.css('span[aria-label="Area"] ::text')
                                 .get(),
                 
                 'price': 'PKR ' + card.css('span[aria-label="Price"]::text')
                              .get(),
                 
-                # for address table
-                'location': card.css('div[aria-label="Location"]::text')
-                                    .get(),
+                # # for address table
+                # 'location': card.css('div[aria-label="Location"]::text')
+                #                     .get(),
                 
               
-                # for property_details
+                # # for property_details
 
-                'rooms': card.css('span[aria-label="Beds"]::text')
-                                .get(),
+                # 'rooms': card.css('span[aria-label="Beds"]::text')
+                #                 .get(),
                 
-                'bathrooms': card.css('span[aria-label="Baths"]::text')
-                                .get(),
+                # 'bathrooms': card.css('span[aria-label="Baths"]::text')
+                #                 .get(),
 
                 
                 'price': 'N/A',
                 
-                'property_type':'N/A',
+                # 'property_type':'N/A',
                 
-                #for customer table
-                'name': 'N/A',
-
-                'phone': 'N/A',
                 
             }
             
@@ -116,9 +115,7 @@ class ZameenScraper(scrapy.Spider):
             for index in range(0, len(features)):
                 features[index]['price'] = json_data[index]['price'] 
                 # features[index]['purpose'] = json_data[index]['purpose']
-                features[index]['property_type'] = json_data[index]['category'][-1]['name']
-                features[index]['phone'] = ', '.join(json_data[index]['phoneNumber']['mobileNumbers'])
-                features[index]['name'] = json_data[index]['contactName']
+                # features[index]['property_type'] = json_data[index]['category'][-1]['name']
                 features[index]['description'] = json_data[index]['shortDescription']
 
                 
@@ -127,7 +124,15 @@ class ZameenScraper(scrapy.Spider):
         except:
             pass
 
-        cursor.execute(sql,features)
+        for feature1 in features:
+            columns = ', '.join("`" + str(x).replace('/', '_') + "`" for x in feature1.keys())
+            values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in feature1.values())
+            sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % ('property_drafts', columns, values)
+
+          
+
+        cursor = cnx.cursor()       
+        cursor.execute(sql)
         cnx.commit()
         cursor.close()
         cnx.close()
@@ -137,5 +142,3 @@ if __name__ == '__main__':
     process = CrawlerProcess()
     process.crawl(ZameenScraper)
     process.start()
-
-
