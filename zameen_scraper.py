@@ -5,6 +5,7 @@ import mysql.connector
 import scrapy
 import urllib
 import json
+import sys
 import os
 
 load_dotenv()
@@ -28,12 +29,41 @@ class ZameenScraper(scrapy.Spider):
 
     }
 
-    
-    def start_requests(self):
-        for page in range(1, 9):
+    curent_page = 1
+       
+    def start_requests(self,response):
+        # try to crawl next pages (infinite scroll)
+        try:
+                # increment current page counter
+            self.current_page += 1
+                
+            try:
+                total_pages = max(list(filter(None, [
+                    text.get().replace('\n', '').strip()
+                    for text in response.css('ul[class="_92c36ba1"]').css('li *::text')
+                    if text.get().replace('\n', '').strip().isdigit()
+                ])))
+                
+            except:
+                total_pages = 1
             # generate next page URL
-            next_page = self.base_url + 'Pakistan-1521-' + str(page) + '.html?'
+            next_page = self.base_url + 'Pakistan-1521-' + str(self.current_page) + '.html?'
             next_page += urllib.parse.urlencode(self.params)
+    
+            if self.current_page <= int(total_pages):
+                # print debug info
+                print('Crawling page %s' % self.current_page)
+               # crawl next page
+            
+            yield response.follow(
+                url=next_page,
+                headers=self.headers,
+                callback=self.parse
+                )
+        
+        except Exception as e:
+            print('\n\nERROR during crawling next page:', e)
+
             
             # crawl the next page URL
             yield scrapy.Request(
@@ -41,23 +71,31 @@ class ZameenScraper(scrapy.Spider):
                 headers=self.headers,
                 callback=self.parse
             )
-    
-    # parse property cards
-    def parse(self, response):
 
+    def create_conn(self):
         DB_HOST=os.getenv('DB_HOST')
         DB_PORT=os.getenv('DB_PORT')
         DB_DATABASE = os.getenv('DB_DATABASE')
         DB_USERNAME=os.getenv('DB_USERNAME')
         DB_PASSWORD=os.getenv('DB_PASSWORD')
-    
-        # Connect to database server
-        cnx = mysql.connector.connect(
-            host= DB_HOST,
-            port= DB_PORT,
-            user= DB_USERNAME,
-            password= DB_PASSWORD,
-            database  = DB_DATABASE)
+        # connect to Connect to DB
+        try:
+            self.cnx = mysql.connector.connect(
+                                    user = DB_USERNAME,
+                                    password = DB_PASSWORD,
+                                    host = DB_HOST,
+                                    port=DB_PORT,
+                                    database = DB_DATABASE
+                                    )
+        except mysql.error as e:
+            print(f"Error connecting to DB platform : {e}")
+            sys.exit(1)
+
+        self.curr = self.cnx.cursor()
+        
+  
+    # parse property cards
+    def parse(self, response):
 
         features = []
         for card in response.css('li[role="article"]'):
@@ -71,7 +109,7 @@ class ZameenScraper(scrapy.Spider):
 
                 # 'purpose': 'N/A',
 
-                'area': card.css('span[aria-label="Area"] ::text')
+                'area': card.css('span[aria-label="Area"] *::text')
                                 .get(),
                 
                 'price': 'PKR ' + card.css('span[aria-label="Price"]::text')
@@ -129,13 +167,11 @@ class ZameenScraper(scrapy.Spider):
             values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in feature1.values())
             sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % ('property_drafts', columns, values)
 
-          
-
-        cursor = cnx.cursor()       
-        cursor.execute(sql)
-        cnx.commit()
-        cursor.close()
-        cnx.close()
+        self.curr.execute(sql)
+        self.cnx.commit()
+        self.curr.close()
+        self.cnx.close()
+      
 
 if __name__ == '__main__':
     # run scraper
