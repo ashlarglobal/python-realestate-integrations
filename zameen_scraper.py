@@ -108,6 +108,7 @@ class ZameenScraper(scrapy.Spider):
                 'price': 'PKR ' + card.css('span[aria-label="Price"]::text')
                              .get(),
 
+                'property_detail_id': self.curr.lastrowid,
                 
                 #  for address table
                 'location': card.css('div[aria-label="Location"]::text')
@@ -127,15 +128,22 @@ class ZameenScraper(scrapy.Spider):
                 
             }
             drafts = ("INSERT INTO property_drafts "
-                        "(title, description, area, price) "
-                        "VALUES (%(title)s, %(description)s, %(area)s, %(price)s)")
+                        "(title, description, area, price,property_detail_id) "
+                        "VALUES (%(title)s, %(description)s, %(area)s, %(price)s,%(property_detail_id)s)")
+            # print(drafts)
+            self.curr.execute(drafts,feature)
 
             details = ("INSERT INTO property_details "
                         "(rooms, bathrooms) "
                         "VALUES (%(rooms)s, %(bathrooms)s)")
+
+            self.curr.execute(details,feature)
+                        
             location = ("INSERT INTO addresses "
                         "(location) "
                         "VALUES (%(location)s)")
+
+            self.curr.execute(location,feature)
            
 
             features.append(feature)
@@ -160,10 +168,7 @@ class ZameenScraper(scrapy.Spider):
                 yield features[index]
         except:
             pass
-        self.curr.execute(drafts,feature)
-        print(self.curr.lastrowid())
-        self.curr.execute(details,feature)
-        self.curr.execute(location,feature)
+        
         self.con.commit()
         self.curr.close()
         self.con.close()        
