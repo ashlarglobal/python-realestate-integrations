@@ -92,44 +92,52 @@ class ZameenScraper(scrapy.Spider):
 
         features = []
         for card in response.css('li[role="article"]'):
-  
+         
             feature = {
                 #for properties table
                 'title': card.css('h2[aria-label="Title"]::text')
                              .get(),
 
-                'description':'N/a',
+                'description':'N/A',
 
-                'purpose': 'N/A',
+                # 'purpose': 'N/A',
 
                 'area': card.css('span[aria-label="Area"] *::text')
                                 .get(),
                 
                 'price': 'PKR ' + card.css('span[aria-label="Price"]::text')
                              .get(),
-                
-                # # for address table
-                # 'location': card.css('div[aria-label="Location"]::text')
-                #                     .get(),
-                
-              
-                # # for property_details
 
-                'rooms': card.css('span[aria-label="Beds"]::text')
-                                .get(),
                 
+                #  for address table
+                'location': card.css('div[aria-label="Location"]::text')
+                                    .get(),
+
+                # for property_details
+                'rooms': card.css('span[aria-label="Beds"]::text')
+                                    .get(),
+                    
                 'bathrooms': card.css('span[aria-label="Baths"]::text')
-                                .get(),
+                                    .get(),
 
                 
                 'price': 'N/A',
                 
                 # 'property_type':'N/A',
                 
-                
             }
-            
-            
+            drafts = ("INSERT INTO property_drafts "
+                        "(title, description, area, price) "
+                        "VALUES (%(title)s, %(description)s, %(area)s, %(price)s)")
+
+            details = ("INSERT INTO property_details "
+                        "(rooms, bathrooms) "
+                        "VALUES (%(rooms)s, %(bathrooms)s)")
+            location = ("INSERT INTO addresses "
+                        "(location) "
+                        "VALUES (%(location)s)")
+           
+
             features.append(feature)
             
         try:
@@ -145,29 +153,20 @@ class ZameenScraper(scrapy.Spider):
             
             for index in range(0, len(features)):
                 features[index]['price'] = json_data[index]['price'] 
-                # features[index]['purpose'] = json_data[index]['purpose']
-                # features[index]['property_type'] = json_data[index]['category'][-1]['name']
+                # # features[index]['purpose'] = json_data[index]['purpose']
+                # # features[index]['property_type'] = json_data[index]['category'][-1]['name']
                 features[index]['description'] = json_data[index]['shortDescription']
-
-                
               
                 yield features[index]
         except:
             pass
-
-        for feature1 in features:
-            columns = ', '.join("`" + str(x).replace('/', '_') + "`" for x in feature1.keys())
-            values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in feature1.values())
-            draft = "INSERT INTO %s ( %s ) VALUES ( %s );" % ('property_drafts', columns, values)
-            detail = "INSERT INTO %s ( %s ) VALUES ( %s );" % ('property_details', columns, values)
-
-
-        self.curr.execute(draft)
-        self.curr.execute(detail)
-        self.cnx.commit()
+        self.curr.execute(drafts,feature)
+        print(self.curr.lastrowid())
+        self.curr.execute(details,feature)
+        self.curr.execute(location,feature)
+        self.con.commit()
         self.curr.close()
-        self.cnx.close()
-      
+        self.con.close()        
 
 if __name__ == '__main__':
     # run scraper
