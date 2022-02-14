@@ -92,15 +92,15 @@ class ZameenScraper(scrapy.Spider):
 
         features = []
         for card in response.css('li[role="article"]'):
-         
+
             feature = {
-                #for properties table
+                
                 'title': card.css('h2[aria-label="Title"]::text')
                              .get(),
 
                 'description':'N/A',
 
-                # 'purpose': 'N/A',
+                'purpose': 'N/A',
 
                 'area': card.css('span[aria-label="Area"] *::text')
                                 .get(),
@@ -110,11 +110,11 @@ class ZameenScraper(scrapy.Spider):
 
                 'property_detail_id': self.curr.lastrowid,
                 
-                #  for address table
                 'location': card.css('div[aria-label="Location"]::text')
                                     .get(),
 
-                # for property_details
+                'address_id': self.curr.lastrowid,
+
                 'rooms': card.css('span[aria-label="Beds"]::text')
                                     .get(),
                     
@@ -122,33 +122,12 @@ class ZameenScraper(scrapy.Spider):
                                     .get(),
 
                 
-                'price': 'N/A',
-                
+                'price':'N/A'
+
                 # 'property_type':'N/A',
                 
+                
             }
-            drafts = ("INSERT INTO property_drafts "
-                        "(title, description, area, price,property_detail_id) "
-                        "VALUES (%(title)s, %(description)s, %(area)s, %(price)s,%(property_detail_id)s)")
-            # print(drafts)
-            self.curr.execute(drafts,feature)
-
-            details = ("INSERT INTO property_details "
-                        "(rooms, bathrooms) "
-                        "VALUES (%(rooms)s, %(bathrooms)s)")
-
-            self.curr.execute(details,feature)
-                        
-            location = ("INSERT INTO addresses "
-                        "(location) "
-                        "VALUES (%(location)s)")
-
-            self.curr.execute(location,feature)
-           
-
-            features.append(feature)
-            
-        try:
             json_data = ''.join([
                 script.get() for script in
                 response.css('script::text')
@@ -158,20 +137,35 @@ class ZameenScraper(scrapy.Spider):
             json_data = json_data.split('window.state = ')[-1].split('}};')[0] + '}}'
             json_data = json.loads(json_data)
             json_data = json_data['algolia']['content']['hits']
+
+            for index in range(0,len(feature)):
+                feature['price'] = json_data[index]['price'] 
+                feature['purpose'] = json_data[index]['purpose']
+                feature['description'] = json_data[index]['shortDescription']
+                yield feature
             
-            for index in range(0, len(features)):
-                features[index]['price'] = json_data[index]['price'] 
-                # # features[index]['purpose'] = json_data[index]['purpose']
-                # # features[index]['property_type'] = json_data[index]['category'][-1]['name']
-                features[index]['description'] = json_data[index]['shortDescription']
-              
-                yield features[index]
-        except:
-            pass
+            details = ("INSERT INTO property_details "
+                            "(rooms, bathrooms) "
+                            "VALUES (%(rooms)s, %(bathrooms)s)")
+
+            self.curr.execute(details,feature)
+                                
+            location = ("INSERT INTO addresses "
+                                "(location) "
+                                "VALUES (%(location)s)")
+
+            self.curr.execute(location,feature)
+
+            drafts = ("INSERT INTO property_drafts "
+                                "(title, description, area, price, purpose, property_detail_id, address_id) "
+                                "VALUES (%(title)s, %(description)s, %(area)s, %(price)s, %(purpose)s, %(property_detail_id)s,%(address_id)s)")
+                    
+            self.curr.execute(drafts,feature)
+            features.append(feature)
         
-        self.con.commit()
+        self.cnx.commit()
         self.curr.close()
-        self.con.close()        
+        self.cnx.close()        
 
 if __name__ == '__main__':
     # run scraper
