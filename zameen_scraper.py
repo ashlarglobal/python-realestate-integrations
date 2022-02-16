@@ -33,7 +33,7 @@ class ZameenScraper(scrapy.Spider):
     }
     current_page = 1
     
-    def parse_pagination(self, response):        
+    def start_requests(self, response):        
         
         try:  
             # extract number of total pages
@@ -49,14 +49,7 @@ class ZameenScraper(scrapy.Spider):
             # generate next page URL
             next_page = self.base_url + 'Pakistan-1521-' + str(page) + '.html'
             next_page += urllib.parse.urlencode(self.params)
-            
-         
-            # crawl next page
-            yield response.follow(
-                url=next_page,
-                headers=self.headers,
-                callback=self.parse
-            )
+
                 # crawl the next page URL
             yield scrapy.Request(
                     url=next_page,
@@ -135,10 +128,14 @@ class ZameenScraper(scrapy.Spider):
 
             for index in range(0,len(feature)):
                 feature['price'] = json_data[index]['price'] 
-                feature['purpose'] = json_data[index]['purpose']
+                # feature['purpose'] = json_data[index]['purpose']
+                if json_data[index]['purpose'] == 'for-sale':
+                     feature['purpose'] = 0
+                else:
+                     feature['purpose'] = 1
                 feature['description'] = json_data[index]['shortDescription']
                 feature['property_type'] = json_data[index]['category'][-1]['name']
-
+                
                 yield feature
             
 
