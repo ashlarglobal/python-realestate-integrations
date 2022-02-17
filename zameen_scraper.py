@@ -2,10 +2,10 @@
 from scrapy.crawler import CrawlerProcess
 from dotenv import load_dotenv
 import mysql.connector
+import requests
 import scrapy
 import urllib
 import json
-import sys
 import os
 
 load_dotenv()
@@ -24,39 +24,29 @@ class ZameenScraper(scrapy.Spider):
         'types':'all',
         'agent_id':'157272'
        
-    }
-    
+    }  
 
     headers = {
      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
 
     }
-    current_page = 1
-    
-    def start_requests(self, response):        
-        
-        try:  
-            # extract number of total pages
-            found_results = int(response.css('div[role="navigation"]').css('li *::text').get())
-            total_pages = int(found_results / 1) + 1
-            # increment curent page counter
-            self.current_page += 1
-        except:
-            total_pages = 1        
-        
-        # loop over the range of pages
-        for page in range(1, total_pages):
-            # generate next page URL
-            next_page = self.base_url + 'Pakistan-1521-' + str(page) + '.html'
-            next_page += urllib.parse.urlencode(self.params)
 
+    def start_requests(self):
+        page = 1
+        # loop over the pages
+        while True:
+               # generate next page URL
+            next_page = self.base_url + 'Pakistan-1521-' + str(page) + '.html?'
+            next_page += urllib.parse.urlencode(self.params)
+            page = page+1
+            if requests.get(next_page).status_code == 404:
+                break
                 # crawl the next page URL
             yield scrapy.Request(
                     url=next_page,
                     headers=self.headers,
                     callback=self.parse
             )
-
 
     def create_conn(self):
         DB_HOST=os.getenv('DB_HOST')
@@ -65,21 +55,14 @@ class ZameenScraper(scrapy.Spider):
         DB_USERNAME=os.getenv('DB_USERNAME')
         DB_PASSWORD=os.getenv('DB_PASSWORD')
         # connect to Connect to DB
-        try:
-            self.cnx = mysql.connector.connect(
-                                    user = DB_USERNAME,
-                                    password = DB_PASSWORD,
-                                    host = DB_HOST,
-                                    port=DB_PORT,
-                                    database = DB_DATABASE
-                                    )
-        except mysql.error as e:
-            print(f"Error connecting to DB platform : {e}")
-            sys.exit(1)
-
-        self.curr = self.cnx.cursor()
-        
-  
+        self.cnx = mysql.connector.connect(
+                        user = DB_USERNAME,
+                        password = DB_PASSWORD,
+                        host = DB_HOST,
+                        port=DB_PORT,
+                        database = DB_DATABASE
+                    )
+        self.curr = self.cnx.cursor(buffered = True)     
     # parse property cards
     def parse(self, response):
 
@@ -128,7 +111,6 @@ class ZameenScraper(scrapy.Spider):
 
             for index in range(0,len(feature)):
                 feature['price'] = json_data[index]['price'] 
-                # feature['purpose'] = json_data[index]['purpose']
                 if json_data[index]['purpose'] == 'for-sale':
                      feature['purpose'] = 0
                 else:
@@ -138,7 +120,6 @@ class ZameenScraper(scrapy.Spider):
                 
                 yield feature
             
-
             details = ("INSERT INTO property_details "
                             "(rooms, bathrooms) "
                             "VALUES (%(rooms)s, %(bathrooms)s)")
@@ -166,7 +147,6 @@ class ZameenScraper(scrapy.Spider):
                     
             self.curr.execute(drafts,feature)
 
-           
             features.append(feature)
         
         self.cnx.commit()
