@@ -1,6 +1,6 @@
 # python-realestate-integrations
 
-This repo integrate the data from Zameen.com and store properties into realestate.
+This repo integrate the data from Zameen.com and store data into realestate.
 
 ## Installation
 
