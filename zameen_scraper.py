@@ -1,12 +1,16 @@
 # packages
 from scrapy.crawler import CrawlerProcess
 from dotenv import load_dotenv
+from datetime import datetime
 import mysql.connector
 import requests
 import scrapy
 import urllib
 import json
 import os
+
+now = datetime.now()
+formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
 
 load_dotenv()
 
@@ -83,6 +87,10 @@ class ZameenScraper(scrapy.Spider):
                 
                 'price': 'PKR ' + card.css('span[aria-label="Price"]::text')
                              .get(),
+
+                'created_at': formatted_date,
+
+                'updated_at': formatted_date,
                 
                 'location': card.css('div[aria-label="Location"]::text')
                                     .get(),
@@ -92,12 +100,10 @@ class ZameenScraper(scrapy.Spider):
                     
                 'bathrooms': card.css('span[aria-label="Baths"]::text')
                                     .get(),
-       
+ 
                 'price':'N/A',
 
-                'property_type':'N/A'
-                
-                
+                'property_type':'N/A'            
             }
             json_data = ''.join([
                 script.get() for script in
@@ -117,33 +123,33 @@ class ZameenScraper(scrapy.Spider):
                      feature['purpose'] = 1
                 feature['description'] = json_data[index]['shortDescription']
                 feature['property_type'] = json_data[index]['category'][-1]['name']
-                
+
                 yield feature
             
             details = ("INSERT INTO property_details "
-                            "(rooms, bathrooms) "
-                            "VALUES (%(rooms)s, %(bathrooms)s)")
+                            "(rooms, bathrooms, created_at, updated_at) "
+                            "VALUES (%(rooms)s, %(bathrooms)s, %(created_at)s, %(updated_at)s)")
 
             self.curr.execute(details,feature)                  
             feature['property_detail_id'] = self.curr.lastrowid
             
             location = ("INSERT INTO addresses "
-                                "(location) "
-                                "VALUES (%(location)s)")
+                                "(location, created_at, updated_at) "
+                                "VALUES (%(location)s, %(created_at)s, %(updated_at)s)")
 
             self.curr.execute(location,feature)
             feature['address_id'] = self.curr.lastrowid
 
             category = ("INSERT INTO categories "
-                                "(name) "
-                                "VALUES (%(property_type)s)")
+                                "(name, created_at, updated_at) "
+                                "VALUES (%(property_type)s, %(created_at)s, %(updated_at)s)")
 
             self.curr.execute(category,feature)
             feature['category_id'] = self.curr.lastrowid
 
             drafts = ("INSERT INTO property_drafts "
-                                "(title, description, area, price, purpose, category_id, property_detail_id, address_id) "
-                                "VALUES (%(title)s, %(description)s, %(area)s, %(price)s, %(purpose)s, %(category_id)s , %(property_detail_id)s,%(address_id)s)")
+                                "(title, description, area, price, purpose, category_id, property_detail_id, address_id, created_at, updated_at) "
+                                "VALUES (%(title)s, %(description)s, %(area)s, %(price)s, %(purpose)s, %(category_id)s , %(property_detail_id)s,%(address_id)s, %(created_at)s, %(updated_at)s)")
                     
             self.curr.execute(drafts,feature)
 
